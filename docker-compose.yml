@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: jobtracker-mysql
+
+    environment:
+      MYSQL_DATABASE: job_tracker
+      MYSQL_ROOT_PASSWORD: root
+
+
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    networks:
+      - jobtracker-network
+
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      timeout: 5s
+      retries: 10
+
+
+  backend:
+    build:
+      context: ./job-tracker
+      dockerfile: Dockerfile
+
+    container_name: jobtracker-backend
+
+    ports:
+      - "8081:8081"
+
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/job_tracker?allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
+
+    depends_on:
+        mysql:
+         condition: service_healthy
+
+    networks:
+      - jobtracker-network
+
+  frontend:
+    build:
+      context: ./job-tracker-front
+      dockerfile: Dockerfile
+
+    container_name: jobtracker-frontend
+
+    ports:
+      - "3000:80"
+
+    depends_on:
+      - backend
+
+    networks:
+      - jobtracker-network
+
+
+networks:
+  jobtracker-network:
+    driver: bridge
+
+
+volumes:
+  mysql_data:
